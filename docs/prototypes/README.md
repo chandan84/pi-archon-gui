@@ -2,9 +2,16 @@
 
 Static HTML prototypes that show the polished end-state of the Pi-Archon desktop UI. These are **not** the real implementation — they exist to lock in the visual language, density, and interaction patterns described in [`../plan/05-design-system.md`](../plan/05-design-system.md) before any Tauri/SvelteKit code is written.
 
-## `ui-end-state.html`
+## Two variants
 
-A single self-contained file. Open it directly in any modern browser — no build step.
+- **`ui-end-state.standalone.html`** — fully offline. Tailwind CSS, Lucide icons, and JS all inlined. ~510 KB. Use this if your network blocks `cdn.tailwindcss.com`, `unpkg.com`, or `fonts.googleapis.com`. Web fonts fall back to the system stack.
+- **`ui-end-state.html`** — CDN-based, smaller source (~100 KB), needs an internet connection to render. Use this if you want to fiddle with classes during dev.
+
+Either file: open directly in any modern browser — no build step.
+
+## `screens/` — pre-rendered
+
+PNG screenshots of every screen at 2× retina, rendered with headless Chromium. Use these for slide decks, PR descriptions, or just to skim without opening a browser.
 
 **What's in it:**
 
