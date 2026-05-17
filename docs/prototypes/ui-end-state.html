@@ -1,0 +1,1665 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pi-Archon — UI Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+        },
+        colors: {
+          accent: {
+            DEFAULT: '#f59e0b',
+            soft: '#fbbf24',
+            ink: '#0b0b0d',
+          },
+        },
+        boxShadow: {
+          'card': '0 1px 0 0 rgb(255 255 255 / 0.02) inset, 0 1px 2px 0 rgb(0 0 0 / 0.4)',
+          'card-hover': '0 1px 0 0 rgb(255 255 255 / 0.04) inset, 0 8px 24px -8px rgb(0 0 0 / 0.5)',
+        },
+        keyframes: {
+          'pulse-dot': {
+            '0%, 100%': { opacity: '0.6', transform: 'scale(0.9)' },
+            '50%': { opacity: '1', transform: 'scale(1.1)' },
+          },
+          'caret': {
+            '0%, 49%': { opacity: '1' },
+            '50%, 100%': { opacity: '0' },
+          },
+          'fade-in': {
+            from: { opacity: '0', transform: 'translateY(4px)' },
+            to: { opacity: '1', transform: 'translateY(0)' },
+          },
+          'slide-in': {
+            from: { opacity: '0', transform: 'translateX(8px)' },
+            to: { opacity: '1', transform: 'translateX(0)' },
+          },
+          'shimmer': {
+            from: { backgroundPosition: '-200% 0' },
+            to: { backgroundPosition: '200% 0' },
+          },
+        },
+        animation: {
+          'pulse-dot': 'pulse-dot 1.6s ease-in-out infinite',
+          'caret': 'caret 1s steps(1) infinite',
+          'fade-in': 'fade-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both',
+          'slide-in': 'slide-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1) both',
+          'shimmer': 'shimmer 2.4s linear infinite',
+        },
+      },
+    },
+  };
+</script>
+<style>
+  html, body { height: 100%; }
+  body {
+    background: #0a0a0b;
+    color: #e4e4e7;
+    font-feature-settings: "cv11", "ss01", "ss03";
+    -webkit-font-smoothing: antialiased;
+  }
+  /* hide scrollbars but keep scroll */
+  .scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+  .scroll-thin::-webkit-scrollbar-thumb { background: #27272a; border-radius: 8px; }
+  .scroll-thin::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+  .scroll-thin::-webkit-scrollbar-track { background: transparent; }
+  /* dotted grid for the codemap canvas */
+  .grid-canvas {
+    background-image: radial-gradient(circle, #27272a 1px, transparent 1px);
+    background-size: 22px 22px;
+    background-position: -1px -1px;
+  }
+  /* subtle topline gradient */
+  .topline {
+    background: linear-gradient(180deg, rgba(245,158,11,0.04) 0%, transparent 60%);
+  }
+  /* edge between nodes */
+  .dag-edge {
+    stroke: #3f3f46;
+    stroke-width: 1.5;
+    fill: none;
+  }
+  .dag-edge-active {
+    stroke: #f59e0b;
+    stroke-width: 1.5;
+    fill: none;
+    stroke-dasharray: 4 4;
+    animation: dash 1.2s linear infinite;
+  }
+  @keyframes dash { to { stroke-dashoffset: -16; } }
+  /* shimmery progress */
+  .shimmer-bar {
+    background: linear-gradient(90deg, transparent 0%, rgba(245,158,11,0.35) 50%, transparent 100%);
+    background-size: 200% 100%;
+  }
+  /* focus ring */
+  .focus-ring:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px #0a0a0b, 0 0 0 4px #fbbf24;
+    border-radius: 6px;
+  }
+  /* monospace tabular numbers */
+  .tnum { font-variant-numeric: tabular-nums; }
+  /* tiny key chip */
+  .key {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 5px;
+    background: #1c1c1f;
+    border: 1px solid #2a2a2e;
+    border-bottom-width: 2px;
+    color: #a1a1aa;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px;
+    line-height: 1;
+  }
+  /* segmented control */
+  .seg {
+    background: #18181b;
+    border: 1px solid #27272a;
+    border-radius: 9px;
+    padding: 3px;
+    display: inline-flex;
+    gap: 2px;
+  }
+  .seg button {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #a1a1aa;
+    transition: color 160ms, background 160ms;
+  }
+  .seg button[aria-selected="true"] {
+    background: #27272a;
+    color: #fafafa;
+  }
+  /* card style */
+  .card {
+    background: #0f0f11;
+    border: 1px solid #1f1f23;
+    border-radius: 10px;
+  }
+  .card-hover { transition: border-color 160ms, transform 160ms, box-shadow 160ms; }
+  .card-hover:hover { border-color: #2a2a2e; transform: translateY(-1px); }
+  /* divider */
+  .hr { border-top: 1px solid #1f1f23; }
+  /* sparkline svg base */
+  .spark path { stroke: #f59e0b; stroke-width: 1.5; fill: none; }
+  .spark .area { fill: url(#sparkfill); stroke: none; opacity: 0.6; }
+  /* "live" dot */
+  .live-dot {
+    width: 6px; height: 6px; border-radius: 9999px; background: #f59e0b;
+    box-shadow: 0 0 0 0 rgba(245,158,11,0.4);
+    animation: pulse-dot 1.6s ease-in-out infinite;
+  }
+  .ok-dot { width: 6px; height: 6px; border-radius: 9999px; background: #10b981; }
+  .warn-dot { width: 6px; height: 6px; border-radius: 9999px; background: #f59e0b; }
+  .err-dot { width: 6px; height: 6px; border-radius: 9999px; background: #f43f5e; }
+  .idle-dot { width: 6px; height: 6px; border-radius: 9999px; background: #52525b; }
+  /* caret in token stream */
+  .caret::after {
+    content: '▍';
+    color: #f59e0b;
+    margin-left: 1px;
+    animation: caret 1s steps(1) infinite;
+  }
+  /* hidden by default sections */
+  [data-screen] { display: none; animation: fade-in 240ms cubic-bezier(0.2,0.8,0.2,1) both; }
+  [data-screen].active { display: block; }
+  /* hover row reveal */
+  .row-actions { opacity: 0; transform: translateX(4px); transition: opacity 160ms, transform 160ms; }
+  .row:hover .row-actions { opacity: 1; transform: translateX(0); }
+  /* diff highlight */
+  .diff-add { background: rgba(16,185,129,0.10); border-left: 2px solid #10b981; }
+  .diff-del { background: rgba(244,63,94,0.10); border-left: 2px solid #f43f5e; }
+  /* command palette overlay */
+  #palette { background: rgba(3,3,5,0.7); backdrop-filter: blur(8px); }
+  /* code/log monospace coloring */
+  .tok-kw   { color: #c084fc; }
+  .tok-str  { color: #86efac; }
+  .tok-num  { color: #fbbf24; }
+  .tok-fn   { color: #93c5fd; }
+  .tok-com  { color: #71717a; font-style: italic; }
+  .tok-dim  { color: #71717a; }
+  .tok-acc  { color: #fbbf24; }
+  /* subtle ring on focused interactive cards */
+  .ring-active { box-shadow: 0 0 0 1px rgba(245,158,11,0.4) inset; }
+</style>
+</head>
+<body class="font-sans text-sm antialiased">
+
+<!-- ============================================================ -->
+<!-- APP SHELL                                                    -->
+<!-- ============================================================ -->
+<div class="h-screen flex">
+
+  <!-- ─── Sidebar ───────────────────────────────────────────── -->
+  <aside class="w-[248px] shrink-0 border-r border-zinc-800/80 bg-[#0c0c0e] flex flex-col">
+    <!-- brand -->
+    <div class="px-4 pt-5 pb-4 flex items-center gap-2.5">
+      <div class="w-7 h-7 rounded-md bg-gradient-to-br from-accent to-amber-700 flex items-center justify-center shadow-card">
+        <i data-lucide="hexagon" class="w-4 h-4 text-accent-ink"></i>
+      </div>
+      <div class="leading-tight">
+        <div class="text-zinc-100 font-semibold tracking-tight">Pi-Archon</div>
+        <div class="text-[11px] text-zinc-500">v0.4 · staging</div>
+      </div>
+    </div>
+
+    <!-- workspace switcher -->
+    <button class="mx-3 mb-3 group flex items-center gap-2 px-2.5 py-2 rounded-md hover:bg-zinc-900/70 transition focus-ring">
+      <div class="w-5 h-5 rounded bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+        <span class="text-[10px] font-semibold text-emerald-300">AC</span>
+      </div>
+      <div class="text-left flex-1 min-w-0">
+        <div class="text-zinc-200 text-[13px] truncate">acme-core</div>
+        <div class="text-[11px] text-zinc-500 truncate">acme · main workspace</div>
+      </div>
+      <i data-lucide="chevrons-up-down" class="w-3.5 h-3.5 text-zinc-500"></i>
+    </button>
+
+    <!-- nav -->
+    <nav class="px-2 flex-1 overflow-auto scroll-thin">
+      <div class="px-2 pt-2 pb-1 text-[11px] uppercase tracking-wider text-zinc-500">Workspace</div>
+      <button data-nav="dashboard" class="nav-btn w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-zinc-300 hover:bg-zinc-900/70 focus-ring">
+        <i data-lucide="layout-dashboard" class="w-4 h-4"></i><span>Dashboard</span>
+      </button>
+      <button data-nav="sessions" class="nav-btn w-full flex items-center justify-between gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-zinc-300 hover:bg-zinc-900/70 focus-ring">
+        <span class="flex items-center gap-2.5"><i data-lucide="git-branch" class="w-4 h-4"></i><span>Sessions</span></span>
+        <span class="text-[11px] text-zinc-500 tnum">7</span>
+      </button>
+      <button data-nav="plan" class="nav-btn w-full flex items-center justify-between gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-zinc-300 hover:bg-zinc-900/70 focus-ring">
+        <span class="flex items-center gap-2.5"><i data-lucide="list-tree" class="w-4 h-4"></i><span>Plan Review</span></span>
+        <span class="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-accent/15 text-accent-soft">awaiting</span>
+      </button>
+      <button data-nav="run" class="nav-btn w-full flex items-center justify-between gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-zinc-300 hover:bg-zinc-900/70 focus-ring">
+        <span class="flex items-center gap-2.5"><i data-lucide="zap" class="w-4 h-4"></i><span>Live Run</span></span>
+        <span class="live-dot"></span>
+      </button>
+
+      <div class="px-2 pt-4 pb-1 text-[11px] uppercase tracking-wider text-zinc-500">Library</div>
+      <button data-nav="skills" class="nav-btn w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-zinc-300 hover:bg-zinc-900/70 focus-ring">
+        <i data-lucide="puzzle" class="w-4 h-4"></i><span>Skills</span>
+      </button>
+      <button data-nav="models" class="nav-btn w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-zinc-300 hover:bg-zinc-900/70 focus-ring">
+        <i data-lucide="cpu" class="w-4 h-4"></i><span>Models &amp; Providers</span>
+      </button>
+      <button data-nav="audit" class="nav-btn w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-zinc-300 hover:bg-zinc-900/70 focus-ring">
+        <i data-lucide="scroll-text" class="w-4 h-4"></i><span>Audit log</span>
+      </button>
+
+      <div class="px-2 pt-4 pb-1 text-[11px] uppercase tracking-wider text-zinc-500">Admin</div>
+      <button data-nav="admin" class="nav-btn w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-zinc-300 hover:bg-zinc-900/70 focus-ring">
+        <i data-lucide="shield" class="w-4 h-4"></i><span>People &amp; roles</span>
+      </button>
+      <button data-nav="tokens" class="nav-btn w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-[13px] text-zinc-300 hover:bg-zinc-900/70 focus-ring">
+        <i data-lucide="key" class="w-4 h-4"></i><span>API tokens</span>
+      </button>
+    </nav>
+
+    <!-- footer / user -->
+    <div class="p-3 border-t border-zinc-800/80">
+      <div class="flex items-center gap-2.5 px-1.5 py-1.5">
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-rose-500 to-orange-500 grid place-items-center text-[11px] font-semibold text-white">CA</div>
+        <div class="min-w-0 flex-1 leading-tight">
+          <div class="text-zinc-200 text-[13px] truncate">Chandan A.</div>
+          <div class="text-[11px] text-zinc-500 truncate">Owner · acme</div>
+        </div>
+        <button class="p-1.5 rounded-md hover:bg-zinc-900 text-zinc-500 hover:text-zinc-300 focus-ring" title="Settings">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ─── Main column ───────────────────────────────────────── -->
+  <main class="flex-1 min-w-0 flex flex-col">
+    <!-- Top bar -->
+    <header class="h-12 shrink-0 border-b border-zinc-800/80 flex items-center px-4 gap-3 bg-[#0a0a0b]/80 backdrop-blur">
+      <button class="p-1.5 rounded-md hover:bg-zinc-900 text-zinc-400 focus-ring" title="Back">
+        <i data-lucide="chevron-left" class="w-4 h-4"></i>
+      </button>
+      <button class="p-1.5 rounded-md hover:bg-zinc-900 text-zinc-400 focus-ring" title="Forward">
+        <i data-lucide="chevron-right" class="w-4 h-4"></i>
+      </button>
+      <nav class="flex items-center gap-1.5 text-[13px] text-zinc-400 min-w-0">
+        <span class="hover:text-zinc-200 cursor-pointer">acme-core</span>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-zinc-700"></i>
+        <span class="hover:text-zinc-200 cursor-pointer">sessions</span>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-zinc-700"></i>
+        <span id="bc-leaf" class="text-zinc-200 truncate">build-rust-cli-line-counter</span>
+      </nav>
+
+      <div class="flex-1"></div>
+
+      <button id="open-palette" class="hidden md:flex items-center gap-2.5 pl-3 pr-1.5 py-1.5 rounded-md border border-zinc-800 bg-[#0f0f11] hover:border-zinc-700 text-zinc-400 hover:text-zinc-300 transition w-64 focus-ring">
+        <i data-lucide="search" class="w-4 h-4"></i>
+        <span class="text-[13px]">Jump to anything…</span>
+        <span class="flex-1"></span>
+        <span class="key">⌘</span><span class="key">K</span>
+      </button>
+
+      <button class="p-1.5 rounded-md hover:bg-zinc-900 text-zinc-400 focus-ring" title="Notifications">
+        <i data-lucide="bell" class="w-4 h-4"></i>
+      </button>
+      <div class="seg">
+        <button aria-selected="true">Dark</button>
+        <button aria-selected="false">Light</button>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <div class="flex-1 overflow-auto scroll-thin">
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- DASHBOARD                                                    -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <section data-screen="dashboard" class="topline">
+      <div class="px-8 py-7 max-w-[1400px]">
+        <div class="flex items-end justify-between mb-7">
+          <div>
+            <h1 class="text-xl text-zinc-100 font-semibold tracking-tight">Dashboard</h1>
+            <p class="text-[13px] text-zinc-500 mt-1">acme-core · last 7 days</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="seg">
+              <button aria-selected="false">24h</button>
+              <button aria-selected="true">7d</button>
+              <button aria-selected="false">30d</button>
+            </div>
+            <button class="inline-flex items-center gap-2 pl-3 pr-3.5 py-2 rounded-md bg-accent text-accent-ink text-[13px] font-medium hover:bg-amber-400 transition focus-ring">
+              <i data-lucide="plus" class="w-4 h-4"></i> New session
+            </button>
+          </div>
+        </div>
+
+        <!-- KPI tiles -->
+        <div class="grid grid-cols-4 gap-3 mb-6">
+          <div class="card p-4 card-hover">
+            <div class="flex items-center justify-between text-[12px] text-zinc-500">
+              <span>Active sessions</span>
+              <i data-lucide="git-branch" class="w-3.5 h-3.5"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-2">
+              <div class="text-2xl text-zinc-100 font-semibold tnum">7</div>
+              <div class="text-[12px] text-emerald-400 tnum">+2</div>
+            </div>
+            <svg viewBox="0 0 120 28" class="w-full h-7 mt-2 spark" preserveAspectRatio="none">
+              <defs><linearGradient id="sparkfill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.5"/>
+                <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+              </linearGradient></defs>
+              <path class="area" d="M0,22 L10,18 L20,20 L30,14 L40,16 L50,10 L60,12 L70,8 L80,11 L90,6 L100,9 L110,5 L120,7 L120,28 L0,28 Z"/>
+              <path d="M0,22 L10,18 L20,20 L30,14 L40,16 L50,10 L60,12 L70,8 L80,11 L90,6 L100,9 L110,5 L120,7"/>
+            </svg>
+          </div>
+          <div class="card p-4 card-hover">
+            <div class="flex items-center justify-between text-[12px] text-zinc-500">
+              <span>Queue depth</span>
+              <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-2">
+              <div class="text-2xl text-zinc-100 font-semibold tnum">14</div>
+              <div class="text-[12px] text-zinc-500">/ 32 cap</div>
+            </div>
+            <div class="mt-3 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+              <div class="h-full bg-accent" style="width: 44%"></div>
+            </div>
+          </div>
+          <div class="card p-4 card-hover">
+            <div class="flex items-center justify-between text-[12px] text-zinc-500">
+              <span>Avg slice time</span>
+              <i data-lucide="timer" class="w-3.5 h-3.5"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-2">
+              <div class="text-2xl text-zinc-100 font-semibold tnum">4m 12s</div>
+              <div class="text-[12px] text-emerald-400 tnum">-18%</div>
+            </div>
+            <div class="mt-3 text-[11px] text-zinc-500">p95 12m 04s · plan→commit</div>
+          </div>
+          <div class="card p-4 card-hover">
+            <div class="flex items-center justify-between text-[12px] text-zinc-500">
+              <span>Spend (7d)</span>
+              <i data-lucide="dollar-sign" class="w-3.5 h-3.5"></i>
+            </div>
+            <div class="mt-2 flex items-baseline gap-2">
+              <div class="text-2xl text-zinc-100 font-semibold tnum">$184.20</div>
+              <div class="text-[12px] text-rose-400 tnum">+9%</div>
+            </div>
+            <div class="mt-3 text-[11px] text-zinc-500">Anthropic 71% · OpenAI 22% · Google 7%</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <!-- Recent sessions table -->
+          <div class="col-span-2 card overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800/80">
+              <div class="text-zinc-200 text-[13px] font-medium">Recent sessions</div>
+              <button class="text-[12px] text-zinc-400 hover:text-zinc-200">View all →</button>
+            </div>
+            <div class="divide-y divide-zinc-800/80">
+              <!-- row template -->
+              <div class="row group flex items-center px-4 py-3 hover:bg-zinc-900/50 transition">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <span class="live-dot"></span>
+                  <div class="min-w-0">
+                    <div class="text-zinc-200 text-[13px] truncate font-medium">build-rust-cli-line-counter</div>
+                    <div class="text-[11px] text-zinc-500 truncate">Chandan · slice 2 of 3 · executing</div>
+                  </div>
+                </div>
+                <div class="hidden md:flex items-center gap-6 text-[12px] text-zinc-400 mr-4 tnum">
+                  <span>2m ago</span>
+                  <span class="text-emerald-400">8.4</span>
+                  <span>4 agents</span>
+                </div>
+                <div class="row-actions flex items-center gap-1">
+                  <button class="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-400 focus-ring" title="Open">
+                    <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button class="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-400 focus-ring" title="Pause">
+                    <i data-lucide="pause" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="row group flex items-center px-4 py-3 hover:bg-zinc-900/50 transition">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <span class="warn-dot"></span>
+                  <div class="min-w-0">
+                    <div class="text-zinc-200 text-[13px] truncate font-medium">add-auth-to-storefront-api</div>
+                    <div class="text-[11px] text-zinc-500 truncate">Priya · awaiting user · low score (6.1)</div>
+                  </div>
+                </div>
+                <div class="hidden md:flex items-center gap-6 text-[12px] text-zinc-400 mr-4 tnum">
+                  <span>14m ago</span>
+                  <span class="text-amber-400">6.1</span>
+                  <span>3 agents</span>
+                </div>
+                <div class="row-actions flex items-center gap-1">
+                  <button class="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-400 focus-ring"><i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i></button>
+                </div>
+              </div>
+              <div class="row group flex items-center px-4 py-3 hover:bg-zinc-900/50 transition">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <span class="ok-dot"></span>
+                  <div class="min-w-0">
+                    <div class="text-zinc-200 text-[13px] truncate font-medium">migrate-postgres-to-libsql</div>
+                    <div class="text-[11px] text-zinc-500 truncate">Sam · completed · 5 slices · 17 commits</div>
+                  </div>
+                </div>
+                <div class="hidden md:flex items-center gap-6 text-[12px] text-zinc-400 mr-4 tnum">
+                  <span>1h ago</span>
+                  <span class="text-emerald-400">9.2</span>
+                  <span>6 agents</span>
+                </div>
+                <div class="row-actions flex items-center gap-1">
+                  <button class="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-400 focus-ring"><i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i></button>
+                </div>
+              </div>
+              <div class="row group flex items-center px-4 py-3 hover:bg-zinc-900/50 transition">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <span class="err-dot"></span>
+                  <div class="min-w-0">
+                    <div class="text-zinc-200 text-[13px] truncate font-medium">refactor-payments-service</div>
+                    <div class="text-[11px] text-zinc-500 truncate">Rin · failed · SANDBOX_VIOLATION on slice 4</div>
+                  </div>
+                </div>
+                <div class="hidden md:flex items-center gap-6 text-[12px] text-zinc-400 mr-4 tnum">
+                  <span>3h ago</span>
+                  <span class="text-rose-400">2.7</span>
+                  <span>3 agents</span>
+                </div>
+                <div class="row-actions flex items-center gap-1">
+                  <button class="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-400 focus-ring"><i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i></button>
+                </div>
+              </div>
+              <div class="row group flex items-center px-4 py-3 hover:bg-zinc-900/50 transition">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <span class="idle-dot"></span>
+                  <div class="min-w-0">
+                    <div class="text-zinc-200 text-[13px] truncate font-medium">setup-tauri-shell</div>
+                    <div class="text-[11px] text-zinc-500 truncate">Chandan · paused · 1 slice queued</div>
+                  </div>
+                </div>
+                <div class="hidden md:flex items-center gap-6 text-[12px] text-zinc-400 mr-4 tnum">
+                  <span>yesterday</span>
+                  <span class="text-zinc-500">—</span>
+                  <span>0 agents</span>
+                </div>
+                <div class="row-actions flex items-center gap-1">
+                  <button class="p-1.5 rounded-md hover:bg-zinc-800 text-zinc-400 focus-ring"><i data-lucide="play" class="w-3.5 h-3.5"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Factory capacity -->
+          <div class="card p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="text-zinc-200 text-[13px] font-medium">Factory capacity</div>
+              <span class="inline-flex items-center gap-1.5 text-[11px] text-emerald-400"><span class="ok-dot"></span> healthy</span>
+            </div>
+            <div class="space-y-3">
+              <div>
+                <div class="flex items-center justify-between text-[12px]">
+                  <span class="text-zinc-400 font-mono">factory-us-east-1</span>
+                  <span class="text-zinc-300 tnum">11 / 16</span>
+                </div>
+                <div class="mt-1.5 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                  <div class="h-full bg-accent" style="width: 68%"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex items-center justify-between text-[12px]">
+                  <span class="text-zinc-400 font-mono">factory-us-east-2</span>
+                  <span class="text-zinc-300 tnum">3 / 16</span>
+                </div>
+                <div class="mt-1.5 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                  <div class="h-full bg-emerald-500" style="width: 18%"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex items-center justify-between text-[12px]">
+                  <span class="text-zinc-400 font-mono">factory-eu-west-1</span>
+                  <span class="text-zinc-300 tnum">0 / 8</span>
+                </div>
+                <div class="mt-1.5 h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                  <div class="h-full bg-zinc-700" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+            <button class="mt-4 w-full text-[12px] text-zinc-400 hover:text-zinc-200 py-1.5 rounded border border-zinc-800 hover:border-zinc-700 transition">Scale settings →</button>
+          </div>
+
+          <!-- Audit feed -->
+          <div class="col-span-2 card overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800/80">
+              <div class="text-zinc-200 text-[13px] font-medium">Audit feed</div>
+              <div class="flex items-center gap-2 text-[12px] text-zinc-500">
+                <span>filter:</span>
+                <button class="px-2 py-0.5 rounded bg-zinc-800/60 text-zinc-300">all</button>
+                <button class="px-2 py-0.5 rounded hover:bg-zinc-800/60">commits</button>
+                <button class="px-2 py-0.5 rounded hover:bg-zinc-800/60">decisions</button>
+                <button class="px-2 py-0.5 rounded hover:bg-zinc-800/60">errors</button>
+              </div>
+            </div>
+            <div class="px-4 py-2 text-[12px] font-mono text-zinc-400 space-y-1 max-h-[260px] overflow-auto scroll-thin">
+              <div><span class="tok-dim">17:42:18</span> <span class="tok-acc">slice.commit</span> <span class="text-zinc-300">build-rust-cli-line-counter / slice-2</span> <span class="tok-dim">sha 9c3ad12</span></div>
+              <div><span class="tok-dim">17:41:51</span> <span class="text-emerald-400">review.pass</span> <span class="text-zinc-300">slice-2</span> <span class="tok-dim">score 8.4 ≥ 7.0</span></div>
+              <div><span class="tok-dim">17:39:02</span> <span class="text-zinc-300">task.complete</span> <span class="tok-dim">executor-2 / impl_line_counter</span></div>
+              <div><span class="tok-dim">17:38:44</span> <span class="text-zinc-300">task.complete</span> <span class="tok-dim">executor-1 / scaffold_cargo_project</span></div>
+              <div><span class="tok-dim">17:38:11</span> <span class="text-amber-400">user.decision</span> <span class="text-zinc-300">add-auth-to-storefront-api</span> <span class="tok-dim">accept_lower by priya</span></div>
+              <div><span class="tok-dim">17:35:09</span> <span class="text-rose-400">SANDBOX_VIOLATION</span> <span class="text-zinc-300">refactor-payments-service / executor-3</span> <span class="tok-dim">/etc/passwd</span></div>
+              <div><span class="tok-dim">17:33:00</span> <span class="text-zinc-300">session.start</span> <span class="tok-dim">build-rust-cli-line-counter by chandan</span></div>
+              <div><span class="tok-dim">17:21:48</span> <span class="text-zinc-300">skill.install</span> <span class="tok-dim">github:earendil-works/skills-rust@v0.4 → global</span></div>
+            </div>
+          </div>
+
+          <!-- Review-score distribution -->
+          <div class="card p-4">
+            <div class="flex items-center justify-between mb-3">
+              <div class="text-zinc-200 text-[13px] font-medium">Review-score distribution</div>
+              <span class="text-[11px] text-zinc-500">last 7d</span>
+            </div>
+            <div class="grid grid-cols-10 gap-1 items-end h-28">
+              <div class="bg-rose-500/60 rounded-sm" style="height: 8%"></div>
+              <div class="bg-rose-500/60 rounded-sm" style="height: 4%"></div>
+              <div class="bg-rose-500/60 rounded-sm" style="height: 6%"></div>
+              <div class="bg-amber-500/60 rounded-sm" style="height: 14%"></div>
+              <div class="bg-amber-500/60 rounded-sm" style="height: 22%"></div>
+              <div class="bg-amber-500/60 rounded-sm" style="height: 36%"></div>
+              <div class="bg-emerald-500/60 rounded-sm" style="height: 64%"></div>
+              <div class="bg-emerald-500/60 rounded-sm" style="height: 92%"></div>
+              <div class="bg-emerald-500/70 rounded-sm" style="height: 78%"></div>
+              <div class="bg-emerald-500/70 rounded-sm" style="height: 40%"></div>
+            </div>
+            <div class="mt-2 flex justify-between text-[10px] text-zinc-500 font-mono">
+              <span>0</span><span>5</span><span>10</span>
+            </div>
+            <div class="mt-3 text-[12px] text-zinc-400">median <span class="text-zinc-200 tnum">7.8</span> · threshold <span class="text-accent tnum">7.0</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- PLAN REVIEW                                                  -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <section data-screen="plan">
+      <div class="px-8 py-6 max-w-[1600px]">
+        <!-- Header -->
+        <div class="flex items-start justify-between mb-5">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2.5 mb-1">
+              <h1 class="text-xl text-zinc-100 font-semibold tracking-tight truncate">build-rust-cli-line-counter</h1>
+              <span class="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full bg-accent/15 text-accent-soft border border-accent/20">
+                <i data-lucide="circle-dot" class="w-3 h-3"></i> awaiting approval
+              </span>
+            </div>
+            <p class="text-[13px] text-zinc-500">3 slices · 9 tasks · planner used Sonnet 4.6 · 12s · 4.1k tokens</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button class="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-zinc-800 hover:border-zinc-700 text-[13px] text-zinc-300 focus-ring">
+              <i data-lucide="message-square" class="w-4 h-4"></i> Ask planner
+            </button>
+            <button class="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-zinc-800 hover:border-zinc-700 text-[13px] text-zinc-300 focus-ring">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i> Regenerate
+            </button>
+            <button class="inline-flex items-center gap-2 px-3.5 py-2 rounded-md bg-accent text-accent-ink text-[13px] font-medium hover:bg-amber-400 focus-ring">
+              <i data-lucide="check" class="w-4 h-4"></i> Approve &amp; execute
+            </button>
+          </div>
+        </div>
+
+        <!-- User prompt card -->
+        <div class="card p-4 mb-5">
+          <div class="flex items-start gap-3">
+            <div class="w-7 h-7 rounded-full bg-gradient-to-br from-rose-500 to-orange-500 grid place-items-center text-[11px] font-semibold text-white shrink-0">CA</div>
+            <div class="min-w-0">
+              <div class="text-[12px] text-zinc-500 mb-1">Your prompt</div>
+              <p class="text-[14px] text-zinc-200 leading-relaxed">
+                Build a Rust CLI that counts lines from stdin, with a <span class="font-mono text-accent-soft">--non-empty</span> flag to count only non-empty lines.
+                Include unit tests for the counter and a one-paragraph README. Use clap v4 for arg parsing.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Codemap / DAG canvas + side panel -->
+        <div class="grid grid-cols-[1fr_360px] gap-3">
+          <div class="card grid-canvas relative overflow-hidden" style="height: 560px;">
+            <div class="absolute inset-0 p-6">
+              <!-- SVG DAG -->
+              <svg viewBox="0 0 1100 520" class="w-full h-full">
+                <defs>
+                  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M0,0 L10,5 L0,10 z" fill="#52525b"/>
+                  </marker>
+                  <marker id="arrow-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M0,0 L10,5 L0,10 z" fill="#f59e0b"/>
+                  </marker>
+                </defs>
+
+                <!-- Slice 1 -->
+                <g>
+                  <path class="dag-edge" d="M180,140 C 220,140 220,90 260,90" marker-end="url(#arrow)"/>
+                  <path class="dag-edge" d="M180,140 C 220,140 220,190 260,190" marker-end="url(#arrow)"/>
+                  <path class="dag-edge" d="M460,90 C 500,90 500,140 540,140" marker-end="url(#arrow)"/>
+                  <path class="dag-edge" d="M460,190 C 500,190 500,140 540,140" marker-end="url(#arrow)"/>
+                  <path class="dag-edge" d="M740,140 C 800,140 800,140 860,140" marker-end="url(#arrow)"/>
+                </g>
+
+                <!-- Slice 2 (active edges) -->
+                <g>
+                  <path class="dag-edge-active" d="M180,360 C 220,360 220,310 260,310" marker-end="url(#arrow-acc)"/>
+                  <path class="dag-edge-active" d="M180,360 C 220,360 220,360 260,360" marker-end="url(#arrow-acc)"/>
+                  <path class="dag-edge-active" d="M180,360 C 220,360 220,410 260,410" marker-end="url(#arrow-acc)"/>
+                  <path class="dag-edge" d="M460,310 C 500,310 500,360 540,360" marker-end="url(#arrow)"/>
+                  <path class="dag-edge" d="M460,360 C 500,360 500,360 540,360" marker-end="url(#arrow)"/>
+                  <path class="dag-edge" d="M460,410 C 500,410 500,360 540,360" marker-end="url(#arrow)"/>
+                  <path class="dag-edge" d="M740,360 C 800,360 800,360 860,360" marker-end="url(#arrow)"/>
+                </g>
+
+                <!-- Slice 1 nodes -->
+                <g>
+                  <!-- planner badge -->
+                  <foreignObject x="40" y="115" width="140" height="50">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="card px-3 py-2 ring-active">
+                      <div class="text-[10px] uppercase tracking-wider text-accent">Slice 1</div>
+                      <div class="text-[12px] text-zinc-200 font-medium">Scaffold project</div>
+                    </div>
+                  </foreignObject>
+                  <!-- exec tasks -->
+                  <foreignObject x="260" y="65" width="200" height="50">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="card px-3 py-2">
+                      <div class="flex items-center gap-2">
+                        <span class="ok-dot"></span>
+                        <span class="text-[12px] text-zinc-200">cargo init + clap</span>
+                      </div>
+                      <div class="text-[10px] text-zinc-500 font-mono">rust-exec · ∥</div>
+                    </div>
+                  </foreignObject>
+                  <foreignObject x="260" y="165" width="200" height="50">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="card px-3 py-2">
+                      <div class="flex items-center gap-2">
+                        <span class="ok-dot"></span>
+                        <span class="text-[12px] text-zinc-200">add gitignore + ci stub</span>
+                      </div>
+                      <div class="text-[10px] text-zinc-500 font-mono">generic-exec · ∥</div>
+                    </div>
+                  </foreignObject>
+                  <!-- reviewer -->
+                  <foreignObject x="540" y="115" width="200" height="50">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="card px-3 py-2">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="search-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+                        <span class="text-[12px] text-zinc-200">review</span>
+                        <span class="ml-auto text-[11px] text-emerald-400 tnum">9.1</span>
+                      </div>
+                      <div class="text-[10px] text-zinc-500 font-mono">multi-spec-reviewer</div>
+                    </div>
+                  </foreignObject>
+                  <!-- commit -->
+                  <foreignObject x="860" y="115" width="190" height="50">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="card px-3 py-2">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="git-commit-horizontal" class="w-3.5 h-3.5 text-zinc-400"></i>
+                        <span class="text-[12px] text-zinc-200">commit</span>
+                        <span class="ml-auto text-[10px] text-zinc-500 font-mono">9c3ad12</span>
+                      </div>
+                      <div class="text-[10px] text-zinc-500 font-mono">det · git add+commit</div>
+                    </div>
+                  </foreignObject>
+                </g>
+
+                <!-- Slice 2 nodes -->
+                <g>
+                  <foreignObject x="40" y="335" width="140" height="50">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="card px-3 py-2 ring-active">
+                      <div class="text-[10px] uppercase tracking-wider text-accent">Slice 2</div>
+                      <div class="text-[12px] text-zinc-200 font-medium">Implement + test</div>
+                    </div>
+                  </foreignObject>
+                  <foreignObject x="260" y="285" width="200" height="50">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="card px-3 py-2">
+                      <div class="flex items-center gap-2">
+                        <span class="live-dot"></span>
+                        <span class="text-[12px] text-zinc-200">impl line_counter()</span>
+                      </div>
+                      <div class="text-[10px] text-zinc-500 font-mono">rust-exec · seq</div>
+                    </div>
+                  </foreignObject>
+                  <foreignObject x="260" y="335" width="200" height="50">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="card px-3 py-2">
+                      <div class="flex items-center gap-2">
+                        <span class="idle-dot"></span>
+                        <span class="text-[12px] text-zinc-200">wire --non-empty flag</span>
+                      </div>
+                      <div class="text-[10px] text-zinc-500 font-mono">rust-exec · seq</div>
+                    </div>
+                  </foreignObject>
+                  <foreignObject x="260" y="385" width="200" height="50">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="card px-3 py-2">
+                      <div class="flex items-center gap-2">
+                        <span class="idle-dot"></span>
+                        <span class="text-[12px] text-zinc-200">unit tests for counter</span>
+                      </div>
+                      <div class="text-[10px] text-zinc-500 font-mono">rust-exec · ∥ after impl</div>
+                    </div>
+                  </foreignObject>
+                  <foreignObject x="540" y="335" width="200" height="50">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="card px-3 py-2">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="search-check" class="w-3.5 h-3.5 text-zinc-500"></i>
+                        <span class="text-[12px] text-zinc-200">review</span>
+                        <span class="ml-auto text-[11px] text-zinc-500 tnum">—</span>
+                      </div>
+                      <div class="text-[10px] text-zinc-500 font-mono">multi-spec-reviewer</div>
+                    </div>
+                  </foreignObject>
+                  <foreignObject x="860" y="335" width="190" height="50">
+                    <div xmlns="http://www.w3.org/1999/xhtml" class="card px-3 py-2 opacity-60">
+                      <div class="flex items-center gap-2">
+                        <i data-lucide="git-commit-horizontal" class="w-3.5 h-3.5 text-zinc-500"></i>
+                        <span class="text-[12px] text-zinc-400">commit</span>
+                        <span class="ml-auto text-[10px] text-zinc-600 font-mono">pending</span>
+                      </div>
+                      <div class="text-[10px] text-zinc-500 font-mono">det · git add+commit</div>
+                    </div>
+                  </foreignObject>
+                </g>
+              </svg>
+
+              <!-- Slice 3 hint (faded) -->
+              <div class="absolute right-6 bottom-6 flex items-center gap-2 text-[12px] text-zinc-600">
+                <i data-lucide="more-horizontal" class="w-4 h-4"></i>
+                Slice 3 — README &amp; polish · 2 tasks
+              </div>
+
+              <!-- canvas controls -->
+              <div class="absolute left-3 bottom-3 flex items-center gap-1">
+                <button class="p-1.5 rounded-md bg-[#0f0f11] border border-zinc-800 hover:border-zinc-700 text-zinc-400" title="Zoom out"><i data-lucide="minus" class="w-3.5 h-3.5"></i></button>
+                <button class="p-1.5 rounded-md bg-[#0f0f11] border border-zinc-800 hover:border-zinc-700 text-zinc-400" title="Zoom in"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>
+                <button class="p-1.5 rounded-md bg-[#0f0f11] border border-zinc-800 hover:border-zinc-700 text-zinc-400" title="Fit"><i data-lucide="maximize-2" class="w-3.5 h-3.5"></i></button>
+                <span class="ml-2 text-[11px] text-zinc-500 font-mono">100%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Side panel -->
+          <div class="space-y-3">
+            <div class="card p-4">
+              <div class="text-[12px] uppercase tracking-wider text-zinc-500 mb-2">Selected slice</div>
+              <div class="text-zinc-100 text-[15px] font-medium mb-1">Slice 2 — Implement + test</div>
+              <p class="text-[13px] text-zinc-400 leading-relaxed">
+                Add the <span class="font-mono text-zinc-200">count_lines()</span> function reading from any <span class="font-mono text-zinc-200">BufRead</span>, wire the
+                <span class="font-mono text-accent-soft">--non-empty</span> flag through clap, and cover both modes with unit tests using <span class="font-mono text-zinc-200">std::io::Cursor</span>.
+                Depends on Slice 1.
+              </p>
+              <div class="mt-3 flex flex-wrap items-center gap-1.5">
+                <span class="text-[11px] px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-300">3 tasks</span>
+                <span class="text-[11px] px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-300">2 sequential · 1 parallel-after</span>
+                <span class="text-[11px] px-2 py-0.5 rounded bg-accent/15 text-accent-soft">est. 3m</span>
+              </div>
+            </div>
+
+            <div class="card p-4">
+              <div class="text-[12px] uppercase tracking-wider text-zinc-500 mb-3">Agents for this run</div>
+              <div class="space-y-2.5">
+                <div class="flex items-center gap-2.5">
+                  <i data-lucide="brain" class="w-4 h-4 text-zinc-400"></i>
+                  <div class="text-[13px] text-zinc-300 flex-1">Planner</div>
+                  <span class="text-[12px] text-zinc-200 font-mono">Sonnet 4.6</span>
+                </div>
+                <div class="flex items-center gap-2.5">
+                  <i data-lucide="wrench" class="w-4 h-4 text-zinc-400"></i>
+                  <div class="text-[13px] text-zinc-300 flex-1">Executor</div>
+                  <span class="text-[12px] text-zinc-200 font-mono">Haiku 4.5</span>
+                </div>
+                <div class="flex items-center gap-2.5">
+                  <i data-lucide="search-check" class="w-4 h-4 text-zinc-400"></i>
+                  <div class="text-[13px] text-zinc-300 flex-1">Reviewer</div>
+                  <span class="text-[12px] text-zinc-200 font-mono">Opus 4.7</span>
+                </div>
+                <div class="hr pt-2.5 flex items-center justify-between text-[12px]">
+                  <span class="text-zinc-500">Review threshold</span>
+                  <span class="text-accent-soft font-mono">7.0</span>
+                </div>
+                <div class="flex items-center justify-between text-[12px]">
+                  <span class="text-zinc-500">Durable execution</span>
+                  <span class="text-zinc-300">off · in-mem queue</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card p-4">
+              <div class="text-[12px] uppercase tracking-wider text-zinc-500 mb-3">Skills attached</div>
+              <div class="space-y-1.5">
+                <div class="flex items-center gap-2 text-[13px]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-accent"></span>
+                  <span class="font-mono text-zinc-200">rust-best-practices</span>
+                  <span class="text-[11px] text-zinc-500">@v0.4</span>
+                </div>
+                <div class="flex items-center gap-2 text-[13px]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-accent"></span>
+                  <span class="font-mono text-zinc-200">clap-recipes</span>
+                  <span class="text-[11px] text-zinc-500">@v1.2</span>
+                </div>
+                <div class="flex items-center gap-2 text-[13px]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-zinc-600"></span>
+                  <span class="font-mono text-zinc-400">test-coverage-reviewer</span>
+                  <span class="text-[11px] text-zinc-500">reviewer-only</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- LIVE RUN (showpiece)                                         -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <section data-screen="run">
+      <div class="px-6 pt-5 pb-3 flex items-center gap-3">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2.5 mb-1">
+            <h1 class="text-lg text-zinc-100 font-semibold tracking-tight truncate">build-rust-cli-line-counter</h1>
+            <div class="seg">
+              <button aria-selected="false" class="!px-2.5"><i data-lucide="list-tree" class="w-3.5 h-3.5 inline -mt-0.5"></i> Plan</button>
+              <button aria-selected="true" class="!px-2.5"><i data-lucide="zap" class="w-3.5 h-3.5 inline -mt-0.5"></i> Act</button>
+            </div>
+            <span class="inline-flex items-center gap-1.5 text-[11px] text-zinc-400">
+              <span class="live-dot"></span> executing slice 2 of 3
+            </span>
+          </div>
+          <div class="text-[12px] text-zinc-500">started 4m 18s ago · 2 of 3 slices committed · last commit <span class="font-mono text-zinc-400">9c3ad12</span></div>
+        </div>
+        <div class="flex-1"></div>
+        <button class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-zinc-800 hover:border-zinc-700 text-[13px] text-zinc-300 focus-ring">
+          <i data-lucide="pause" class="w-4 h-4"></i> Pause
+        </button>
+        <button class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-zinc-800 hover:border-zinc-700 text-[13px] text-zinc-300 focus-ring">
+          <i data-lucide="square" class="w-4 h-4"></i> Cancel slice
+        </button>
+        <button class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-rose-500/30 hover:bg-rose-500/10 text-[13px] text-rose-300 focus-ring">
+          <i data-lucide="octagon-x" class="w-4 h-4"></i> Stop run
+        </button>
+      </div>
+
+      <!-- Three pane -->
+      <div class="grid grid-cols-[280px_minmax(0,1fr)_320px] gap-3 px-6 pb-6" style="height: calc(100vh - 12rem);">
+        <!-- LEFT: slice list -->
+        <div class="card flex flex-col overflow-hidden">
+          <div class="px-3.5 py-3 border-b border-zinc-800/80 flex items-center justify-between">
+            <div class="text-zinc-200 text-[13px] font-medium">Slices</div>
+            <span class="text-[11px] text-zinc-500 tnum">2 / 3</span>
+          </div>
+          <div class="flex-1 overflow-auto scroll-thin p-2 space-y-1.5">
+            <button class="w-full text-left p-3 rounded-md hover:bg-zinc-900/60 border border-transparent">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[12px] text-zinc-500 font-mono">slice-1</span>
+                <span class="inline-flex items-center gap-1 text-[11px] text-emerald-400"><i data-lucide="check" class="w-3 h-3"></i> 9.1</span>
+              </div>
+              <div class="text-[13px] text-zinc-200 font-medium leading-tight">Scaffold project</div>
+              <div class="text-[11px] text-zinc-500 mt-1">2 tasks · 48s · committed 9c3ad12</div>
+            </button>
+            <button class="w-full text-left p-3 rounded-md bg-zinc-900/80 border border-accent/30 ring-active">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[12px] text-zinc-400 font-mono">slice-2</span>
+                <span class="inline-flex items-center gap-1 text-[11px] text-accent-soft"><span class="live-dot"></span> 2 of 3</span>
+              </div>
+              <div class="text-[13px] text-zinc-100 font-medium leading-tight">Implement + test</div>
+              <div class="mt-2 h-1 rounded-full bg-zinc-800 overflow-hidden">
+                <div class="h-full shimmer-bar animate-shimmer rounded-full" style="width: 64%"></div>
+              </div>
+              <div class="text-[11px] text-zinc-500 mt-1.5">elapsed 2m 06s · est. 1m left</div>
+            </button>
+            <button class="w-full text-left p-3 rounded-md hover:bg-zinc-900/60 border border-transparent">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-[12px] text-zinc-500 font-mono">slice-3</span>
+                <span class="inline-flex items-center gap-1 text-[11px] text-zinc-500"><i data-lucide="clock" class="w-3 h-3"></i> queued</span>
+              </div>
+              <div class="text-[13px] text-zinc-300 font-medium leading-tight">README &amp; polish</div>
+              <div class="text-[11px] text-zinc-500 mt-1">2 tasks · est. 1m</div>
+            </button>
+          </div>
+
+          <div class="border-t border-zinc-800/80 p-3">
+            <div class="text-[11px] uppercase tracking-wider text-zinc-500 mb-2">Queue</div>
+            <div class="flex items-center justify-between text-[12px] mb-1">
+              <span class="text-zinc-300">in-mem (SQLite WAL)</span>
+              <span class="text-zinc-300 tnum">3 in flight · 1 queued</span>
+            </div>
+            <div class="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+              <div class="h-full bg-accent" style="width: 33%"></div>
+            </div>
+            <div class="mt-1.5 text-[11px] text-zinc-500">factory pool: <span class="text-zinc-300">11 / 16</span> used</div>
+          </div>
+        </div>
+
+        <!-- CENTER: agent streams -->
+        <div class="card flex flex-col overflow-hidden">
+          <div class="flex items-center px-3.5 py-2.5 border-b border-zinc-800/80 gap-2">
+            <div class="seg">
+              <button aria-selected="true">Planner</button>
+              <button aria-selected="false">Executor 1</button>
+              <button aria-selected="false">Executor 2</button>
+              <button aria-selected="false">Executor 3</button>
+              <button aria-selected="false">Reviewer</button>
+            </div>
+            <div class="flex-1"></div>
+            <span class="text-[11px] text-zinc-500 font-mono">agent · planner-01 · Sonnet 4.6</span>
+            <button class="ml-2 p-1.5 rounded hover:bg-zinc-800 text-zinc-400" title="Hot-swap model"><i data-lucide="repeat" class="w-3.5 h-3.5"></i></button>
+            <button class="p-1.5 rounded hover:bg-zinc-800 text-zinc-400" title="Restart agent"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i></button>
+            <button class="p-1.5 rounded hover:bg-zinc-800 text-zinc-400" title="Stop agent"><i data-lucide="square" class="w-3.5 h-3.5"></i></button>
+          </div>
+
+          <div class="flex-1 overflow-auto scroll-thin p-5 font-mono text-[12.5px] leading-[1.7] text-zinc-300">
+            <div class="animate-fade-in"><span class="tok-com">// turn 3 · executing impl_line_counter</span></div>
+            <div class="animate-fade-in mt-3">
+              <div class="text-zinc-400 mb-2 text-[11px] uppercase tracking-wider">Thinking</div>
+              <div class="text-zinc-400 italic">
+                The counter needs to handle Windows line endings. I'll read line-by-line via BufRead::lines() which strips terminators, and use a simple loop with a counter. For the <span class="text-accent-soft not-italic">--non-empty</span> flag, I'll check <span class="text-accent-soft not-italic">!line.trim().is_empty()</span>.
+              </div>
+            </div>
+
+            <div class="animate-fade-in mt-4">
+              <div class="text-zinc-400 mb-2 text-[11px] uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="file-plus-2" class="w-3.5 h-3.5"></i>
+                Tool call · <span class="font-mono text-accent-soft normal-case">write</span> · <span class="font-mono text-zinc-300">src/lib.rs</span>
+              </div>
+              <pre class="card !bg-[#0a0a0c] !border-zinc-800 p-3 rounded-md overflow-x-auto"><span class="tok-kw">use</span> std::io::<span class="tok-fn">BufRead</span>;
+
+<span class="tok-com">/// Count lines from any BufRead, optionally skipping blanks.</span>
+<span class="tok-kw">pub fn</span> <span class="tok-fn">count_lines</span>&lt;R: <span class="tok-fn">BufRead</span>&gt;(reader: R, non_empty_only: <span class="tok-kw">bool</span>) -&gt; <span class="tok-fn">usize</span> {
+    reader
+        .lines()
+        .filter_map(|l| l.ok())
+        .filter(|l| !non_empty_only || !l.trim().is_empty())
+        .<span class="tok-fn">count</span>()
+}</pre>
+            </div>
+
+            <div class="animate-fade-in mt-4">
+              <div class="text-zinc-400 mb-2 text-[11px] uppercase tracking-wider flex items-center gap-2">
+                <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+                Tool call · <span class="font-mono text-accent-soft normal-case">bash</span> · <span class="font-mono text-zinc-300">cargo check</span>
+              </div>
+              <pre class="card !bg-[#0a0a0c] !border-zinc-800 p-3 rounded-md text-zinc-400 text-[12px]">    Checking line-counter v0.1.0 (/workspace/line-counter)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.84s</pre>
+            </div>
+
+            <div class="animate-fade-in mt-4">
+              <div class="text-zinc-400 mb-1 text-[11px] uppercase tracking-wider">Generating</div>
+              <div class="text-zinc-300">Now wiring the <span class="text-accent-soft">--non-empty</span> flag through <span class="text-zinc-200">clap</span> derive and connecting <span class="text-zinc-200">main.rs</span><span class="caret"></span></div>
+            </div>
+          </div>
+
+          <!-- composer -->
+          <div class="border-t border-zinc-800/80 p-3 flex items-center gap-2">
+            <button class="p-2 rounded-md hover:bg-zinc-800 text-zinc-400" title="Steer"><i data-lucide="compass" class="w-4 h-4"></i></button>
+            <input type="text" placeholder="Steer or follow up… (queued; agent finishes current turn first)"
+                   class="flex-1 bg-transparent text-[13px] text-zinc-200 placeholder:text-zinc-600 outline-none focus-ring rounded px-1.5 py-1">
+            <span class="text-[11px] text-zinc-500">steering mode: <span class="text-zinc-300">queue</span></span>
+            <button class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-accent text-accent-ink text-[12px] font-medium hover:bg-amber-400">
+              <i data-lucide="corner-down-left" class="w-3.5 h-3.5"></i> Send
+            </button>
+          </div>
+        </div>
+
+        <!-- RIGHT: artifact tree + agents -->
+        <div class="flex flex-col gap-3 min-h-0">
+          <div class="card flex-1 overflow-hidden flex flex-col">
+            <div class="flex items-center justify-between px-3.5 py-2.5 border-b border-zinc-800/80">
+              <div class="text-zinc-200 text-[13px] font-medium">Artifacts</div>
+              <div class="flex items-center gap-1">
+                <button class="p-1 rounded hover:bg-zinc-800 text-zinc-400" title="Diff"><i data-lucide="git-compare" class="w-3.5 h-3.5"></i></button>
+                <button class="p-1 rounded hover:bg-zinc-800 text-zinc-400" title="Open folder"><i data-lucide="folder-open" class="w-3.5 h-3.5"></i></button>
+              </div>
+            </div>
+            <div class="flex-1 overflow-auto scroll-thin px-2 py-2 text-[12.5px] font-mono">
+              <div class="px-2 py-1 text-zinc-400 flex items-center gap-1.5"><i data-lucide="folder" class="w-3.5 h-3.5"></i> line-counter</div>
+              <div class="pl-5">
+                <div class="px-2 py-0.5 text-zinc-500 flex items-center gap-1.5"><i data-lucide="file" class="w-3.5 h-3.5"></i> Cargo.toml <span class="ml-auto text-[10px] text-emerald-400">+</span></div>
+                <div class="px-2 py-0.5 text-zinc-500 flex items-center gap-1.5"><i data-lucide="folder" class="w-3.5 h-3.5"></i> src</div>
+                <div class="pl-5">
+                  <div class="px-2 py-0.5 text-zinc-200 flex items-center gap-1.5 bg-accent/10 rounded">
+                    <i data-lucide="file-code-2" class="w-3.5 h-3.5 text-accent"></i> lib.rs
+                    <span class="ml-auto text-[10px] text-emerald-400">+24</span>
+                  </div>
+                  <div class="px-2 py-0.5 text-zinc-500 flex items-center gap-1.5"><i data-lucide="file-code-2" class="w-3.5 h-3.5"></i> main.rs <span class="ml-auto text-[10px] text-amber-400">±</span></div>
+                </div>
+                <div class="px-2 py-0.5 text-zinc-500 flex items-center gap-1.5"><i data-lucide="folder" class="w-3.5 h-3.5"></i> tests</div>
+                <div class="pl-5">
+                  <div class="px-2 py-0.5 text-zinc-500 flex items-center gap-1.5"><i data-lucide="file-code-2" class="w-3.5 h-3.5"></i> counter.rs <span class="ml-auto text-[10px] text-zinc-600">queued</span></div>
+                </div>
+                <div class="px-2 py-0.5 text-zinc-500 flex items-center gap-1.5"><i data-lucide="file" class="w-3.5 h-3.5"></i> README.md <span class="ml-auto text-[10px] text-zinc-600">slice 3</span></div>
+              </div>
+              <div class="hr mt-2 pt-2 px-2">
+                <div class="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">Diff preview · lib.rs</div>
+                <div class="text-[11.5px] leading-[1.6] rounded overflow-hidden border border-zinc-800">
+                  <div class="diff-add pl-2 pr-2 py-0.5">+ pub fn count_lines&lt;R: BufRead&gt;(reader: R, non_empty_only: bool) -&gt; usize {</div>
+                  <div class="diff-add pl-2 pr-2 py-0.5">+     reader.lines().filter_map(|l| l.ok())</div>
+                  <div class="diff-add pl-2 pr-2 py-0.5">+         .filter(|l| !non_empty_only || !l.trim().is_empty())</div>
+                  <div class="diff-add pl-2 pr-2 py-0.5">+         .count()</div>
+                  <div class="diff-add pl-2 pr-2 py-0.5">+ }</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card p-3.5">
+            <div class="text-[12px] uppercase tracking-wider text-zinc-500 mb-2.5">Live agents</div>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2.5">
+                <i data-lucide="brain" class="w-4 h-4 text-zinc-400"></i>
+                <div class="text-[13px] text-zinc-200 flex-1">planner-01</div>
+                <span class="live-dot"></span>
+                <span class="text-[11px] text-zinc-500 font-mono">Sonnet 4.6</span>
+              </div>
+              <div class="flex items-center gap-2.5">
+                <i data-lucide="wrench" class="w-4 h-4 text-zinc-400"></i>
+                <div class="text-[13px] text-zinc-200 flex-1">executor-1</div>
+                <span class="live-dot"></span>
+                <span class="text-[11px] text-zinc-500 font-mono">Haiku 4.5</span>
+              </div>
+              <div class="flex items-center gap-2.5">
+                <i data-lucide="wrench" class="w-4 h-4 text-zinc-400"></i>
+                <div class="text-[13px] text-zinc-200 flex-1">executor-2</div>
+                <span class="live-dot"></span>
+                <span class="text-[11px] text-zinc-500 font-mono">Haiku 4.5</span>
+              </div>
+              <div class="flex items-center gap-2.5">
+                <i data-lucide="wrench" class="w-4 h-4 text-zinc-500"></i>
+                <div class="text-[13px] text-zinc-400 flex-1">executor-3</div>
+                <span class="idle-dot"></span>
+                <span class="text-[11px] text-zinc-500 font-mono">idle</span>
+              </div>
+              <div class="flex items-center gap-2.5">
+                <i data-lucide="search-check" class="w-4 h-4 text-zinc-500"></i>
+                <div class="text-[13px] text-zinc-400 flex-1">reviewer-01</div>
+                <span class="idle-dot"></span>
+                <span class="text-[11px] text-zinc-500 font-mono">Opus 4.7</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- SKILLS                                                       -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <section data-screen="skills">
+      <div class="px-8 py-7 max-w-[1400px]">
+        <div class="flex items-end justify-between mb-6">
+          <div>
+            <h1 class="text-xl text-zinc-100 font-semibold tracking-tight">Skills</h1>
+            <p class="text-[13px] text-zinc-500 mt-1">37 installed · 4 outdated · install from GitHub, npm, local folder, or URL</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <div class="relative">
+              <i data-lucide="search" class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500"></i>
+              <input type="text" placeholder="Search skills…" class="pl-8 pr-3 py-1.5 rounded-md bg-[#0f0f11] border border-zinc-800 text-[13px] text-zinc-200 placeholder:text-zinc-600 outline-none focus:border-zinc-700 w-64 focus-ring">
+            </div>
+            <button class="inline-flex items-center gap-2 px-3.5 py-2 rounded-md bg-accent text-accent-ink text-[13px] font-medium hover:bg-amber-400 focus-ring">
+              <i data-lucide="plus" class="w-4 h-4"></i> Install skill
+            </button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 mb-4 text-[12px]">
+          <span class="text-zinc-500 mr-1">scope:</span>
+          <button class="px-2.5 py-1 rounded bg-zinc-800/80 text-zinc-200">all</button>
+          <button class="px-2.5 py-1 rounded hover:bg-zinc-800/60 text-zinc-400">global</button>
+          <button class="px-2.5 py-1 rounded hover:bg-zinc-800/60 text-zinc-400">planner</button>
+          <button class="px-2.5 py-1 rounded hover:bg-zinc-800/60 text-zinc-400">executor</button>
+          <button class="px-2.5 py-1 rounded hover:bg-zinc-800/60 text-zinc-400">reviewer</button>
+          <span class="mx-2 text-zinc-700">|</span>
+          <span class="text-zinc-500 mr-1">source:</span>
+          <button class="px-2.5 py-1 rounded bg-zinc-800/80 text-zinc-200">any</button>
+          <button class="px-2.5 py-1 rounded hover:bg-zinc-800/60 text-zinc-400">github</button>
+          <button class="px-2.5 py-1 rounded hover:bg-zinc-800/60 text-zinc-400">local</button>
+          <button class="px-2.5 py-1 rounded hover:bg-zinc-800/60 text-zinc-400">npm</button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <!-- skill card -->
+          <div class="card p-4 card-hover">
+            <div class="flex items-start gap-3">
+              <div class="w-9 h-9 rounded-md bg-orange-500/15 border border-orange-500/30 grid place-items-center"><i data-lucide="rust" class="w-5 h-5 text-orange-400"></i></div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <div class="text-zinc-100 font-medium truncate">rust-best-practices</div>
+                  <span class="text-[11px] px-1.5 py-0.5 rounded bg-accent/15 text-accent-soft">attached</span>
+                </div>
+                <div class="text-[11px] text-zinc-500 font-mono truncate">earendil-works/skills-rust@v0.4 · github</div>
+              </div>
+              <button class="p-1 rounded hover:bg-zinc-800 text-zinc-500" title="More"><i data-lucide="more-vertical" class="w-3.5 h-3.5"></i></button>
+            </div>
+            <p class="text-[12.5px] text-zinc-400 mt-3 leading-relaxed line-clamp-2">Activates when writing Rust. Enforces clippy-clean code, prefers iterators over loops, suggests proper error types.</p>
+            <div class="mt-3 flex items-center justify-between text-[11px] text-zinc-500">
+              <span>executor · 24 invocations · 7d</span>
+              <span class="text-emerald-400">up to date</span>
+            </div>
+          </div>
+
+          <div class="card p-4 card-hover">
+            <div class="flex items-start gap-3">
+              <div class="w-9 h-9 rounded-md bg-sky-500/15 border border-sky-500/30 grid place-items-center"><i data-lucide="terminal-square" class="w-5 h-5 text-sky-400"></i></div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <div class="text-zinc-100 font-medium truncate">clap-recipes</div>
+                  <span class="text-[11px] px-1.5 py-0.5 rounded bg-accent/15 text-accent-soft">attached</span>
+                </div>
+                <div class="text-[11px] text-zinc-500 font-mono truncate">acme/internal-skills@v1.2 · github</div>
+              </div>
+              <button class="p-1 rounded hover:bg-zinc-800 text-zinc-500"><i data-lucide="more-vertical" class="w-3.5 h-3.5"></i></button>
+            </div>
+            <p class="text-[12.5px] text-zinc-400 mt-3 leading-relaxed line-clamp-2">Recipes for clap v4 derive macros, subcommands, completions.</p>
+            <div class="mt-3 flex items-center justify-between text-[11px] text-zinc-500">
+              <span>executor · 6 invocations · 7d</span>
+              <span class="text-amber-400">v1.3 available</span>
+            </div>
+          </div>
+
+          <div class="card p-4 card-hover">
+            <div class="flex items-start gap-3">
+              <div class="w-9 h-9 rounded-md bg-purple-500/15 border border-purple-500/30 grid place-items-center"><i data-lucide="search-check" class="w-5 h-5 text-purple-400"></i></div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <div class="text-zinc-100 font-medium truncate">test-coverage-reviewer</div>
+                  <span class="text-[11px] px-1.5 py-0.5 rounded bg-zinc-700/60 text-zinc-300">reviewer-only</span>
+                </div>
+                <div class="text-[11px] text-zinc-500 font-mono truncate">~/.pi/skills/test-coverage · local</div>
+              </div>
+              <button class="p-1 rounded hover:bg-zinc-800 text-zinc-500"><i data-lucide="more-vertical" class="w-3.5 h-3.5"></i></button>
+            </div>
+            <p class="text-[12.5px] text-zinc-400 mt-3 leading-relaxed line-clamp-2">Reviewer skill: checks that every new public function has at least one test exercising it.</p>
+            <div class="mt-3 flex items-center justify-between text-[11px] text-zinc-500">
+              <span>reviewer · 19 invocations · 7d</span>
+              <span class="text-emerald-400">up to date</span>
+            </div>
+          </div>
+
+          <div class="card p-4 card-hover">
+            <div class="flex items-start gap-3">
+              <div class="w-9 h-9 rounded-md bg-emerald-500/15 border border-emerald-500/30 grid place-items-center"><i data-lucide="database" class="w-5 h-5 text-emerald-400"></i></div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <div class="text-zinc-100 font-medium truncate">sqlc-helper</div>
+                </div>
+                <div class="text-[11px] text-zinc-500 font-mono truncate">github.com/sqlc-dev/skill@v0.2 · github</div>
+              </div>
+              <button class="p-1 rounded hover:bg-zinc-800 text-zinc-500"><i data-lucide="more-vertical" class="w-3.5 h-3.5"></i></button>
+            </div>
+            <p class="text-[12.5px] text-zinc-400 mt-3 leading-relaxed line-clamp-2">Generate type-safe Go from SQL with sqlc. Includes migration scaffolding.</p>
+            <div class="mt-3 flex items-center justify-between text-[11px] text-zinc-500">
+              <span>executor · 0 invocations · 7d</span>
+              <button class="text-accent-soft hover:underline">attach →</button>
+            </div>
+          </div>
+
+          <div class="card p-4 card-hover">
+            <div class="flex items-start gap-3">
+              <div class="w-9 h-9 rounded-md bg-zinc-500/15 border border-zinc-500/30 grid place-items-center"><i data-lucide="brain" class="w-5 h-5 text-zinc-300"></i></div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <div class="text-zinc-100 font-medium truncate">slice-planner-deluxe</div>
+                  <span class="text-[11px] px-1.5 py-0.5 rounded bg-zinc-700/60 text-zinc-300">planner-only</span>
+                </div>
+                <div class="text-[11px] text-zinc-500 font-mono truncate">earendil-works/pi-skills@v0.7 · github</div>
+              </div>
+              <button class="p-1 rounded hover:bg-zinc-800 text-zinc-500"><i data-lucide="more-vertical" class="w-3.5 h-3.5"></i></button>
+            </div>
+            <p class="text-[12.5px] text-zinc-400 mt-3 leading-relaxed line-clamp-2">Tighter slice decomposition with explicit parallel/sequential markers and risk tags.</p>
+            <div class="mt-3 flex items-center justify-between text-[11px] text-zinc-500">
+              <span>planner · 11 invocations · 7d</span>
+              <span class="text-emerald-400">up to date</span>
+            </div>
+          </div>
+
+          <div class="card p-4 card-hover border-dashed">
+            <div class="flex items-center justify-center h-full min-h-[120px] text-zinc-500 hover:text-zinc-300 transition cursor-pointer">
+              <div class="text-center">
+                <i data-lucide="plus" class="w-5 h-5 inline-block"></i>
+                <div class="text-[13px] mt-1">Install from GitHub, local, npm, or URL</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- MODELS                                                       -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <section data-screen="models">
+      <div class="px-8 py-7 max-w-[1400px]">
+        <div class="flex items-end justify-between mb-6">
+          <div>
+            <h1 class="text-xl text-zinc-100 font-semibold tracking-tight">Models &amp; Providers</h1>
+            <p class="text-[13px] text-zinc-500 mt-1">Credentials stored in the agent factory · never returned through gRPC</p>
+          </div>
+          <button class="inline-flex items-center gap-2 px-3.5 py-2 rounded-md bg-accent text-accent-ink text-[13px] font-medium hover:bg-amber-400 focus-ring">
+            <i data-lucide="plus" class="w-4 h-4"></i> Add provider
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 mb-6">
+          <div class="card p-5">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-9 h-9 rounded-md bg-amber-500/15 border border-amber-500/30 grid place-items-center"><i data-lucide="sparkles" class="w-5 h-5 text-amber-400"></i></div>
+              <div class="flex-1">
+                <div class="text-zinc-100 font-medium">Anthropic</div>
+                <div class="text-[11px] text-zinc-500 font-mono">api.anthropic.com · key from <span class="text-zinc-300">vault:secret/data/anthropic</span></div>
+              </div>
+              <span class="inline-flex items-center gap-1.5 text-[11px] text-emerald-400"><span class="ok-dot"></span> reachable · 142ms</span>
+            </div>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between text-[12.5px] py-1.5 px-2 rounded hover:bg-zinc-900/60">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-zinc-200">claude-opus-4-7</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">reasoning</span>
+                </div>
+                <span class="text-[11px] text-zinc-500 tnum">200k · $15 / 1M out</span>
+              </div>
+              <div class="flex items-center justify-between text-[12.5px] py-1.5 px-2 rounded hover:bg-zinc-900/60">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-zinc-200">claude-sonnet-4-6</span>
+                </div>
+                <span class="text-[11px] text-zinc-500 tnum">200k · $3 / 1M out</span>
+              </div>
+              <div class="flex items-center justify-between text-[12.5px] py-1.5 px-2 rounded hover:bg-zinc-900/60">
+                <div class="flex items-center gap-2">
+                  <span class="font-mono text-zinc-200">claude-haiku-4-5</span>
+                </div>
+                <span class="text-[11px] text-zinc-500 tnum">200k · $0.80 / 1M out</span>
+              </div>
+            </div>
+            <div class="hr pt-3 mt-3 flex items-center justify-between text-[12px] text-zinc-500">
+              <span>3 models · last sync 2m ago</span>
+              <button class="hover:text-zinc-200 inline-flex items-center gap-1.5"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Test connection</button>
+            </div>
+          </div>
+
+          <div class="card p-5">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-9 h-9 rounded-md bg-emerald-500/15 border border-emerald-500/30 grid place-items-center"><i data-lucide="circle" class="w-5 h-5 text-emerald-400"></i></div>
+              <div class="flex-1">
+                <div class="text-zinc-100 font-medium">OpenAI</div>
+                <div class="text-[11px] text-zinc-500 font-mono">api.openai.com · key from <span class="text-zinc-300">env:OPENAI_API_KEY</span></div>
+              </div>
+              <span class="inline-flex items-center gap-1.5 text-[11px] text-emerald-400"><span class="ok-dot"></span> reachable · 211ms</span>
+            </div>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between text-[12.5px] py-1.5 px-2 rounded hover:bg-zinc-900/60">
+                <span class="font-mono text-zinc-200">gpt-5</span>
+                <span class="text-[11px] text-zinc-500 tnum">400k · $10 / 1M out</span>
+              </div>
+              <div class="flex items-center justify-between text-[12.5px] py-1.5 px-2 rounded hover:bg-zinc-900/60">
+                <span class="font-mono text-zinc-200">gpt-5-mini</span>
+                <span class="text-[11px] text-zinc-500 tnum">400k · $1.50 / 1M out</span>
+              </div>
+            </div>
+            <div class="hr pt-3 mt-3 flex items-center justify-between text-[12px] text-zinc-500">
+              <span>2 models · last sync 9m ago</span>
+              <button class="hover:text-zinc-200 inline-flex items-center gap-1.5"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Test connection</button>
+            </div>
+          </div>
+
+          <div class="card p-5">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-9 h-9 rounded-md bg-sky-500/15 border border-sky-500/30 grid place-items-center"><i data-lucide="search" class="w-5 h-5 text-sky-400"></i></div>
+              <div class="flex-1">
+                <div class="text-zinc-100 font-medium">Google Gemini</div>
+                <div class="text-[11px] text-zinc-500 font-mono">generativelanguage.googleapis.com · key from <span class="text-zinc-300">vault:secret/data/gemini</span></div>
+              </div>
+              <span class="inline-flex items-center gap-1.5 text-[11px] text-emerald-400"><span class="ok-dot"></span> reachable · 88ms</span>
+            </div>
+            <div class="space-y-2">
+              <div class="flex items-center justify-between text-[12.5px] py-1.5 px-2 rounded hover:bg-zinc-900/60">
+                <span class="font-mono text-zinc-200">gemini-2.5-pro</span>
+                <span class="text-[11px] text-zinc-500 tnum">2M · $5 / 1M out</span>
+              </div>
+            </div>
+            <div class="hr pt-3 mt-3 flex items-center justify-between text-[12px] text-zinc-500">
+              <span>1 model · last sync 20m ago</span>
+              <button class="hover:text-zinc-200 inline-flex items-center gap-1.5"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Test connection</button>
+            </div>
+          </div>
+
+          <div class="card p-5">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-9 h-9 rounded-md bg-zinc-500/15 border border-zinc-500/30 grid place-items-center"><i data-lucide="server" class="w-5 h-5 text-zinc-300"></i></div>
+              <div class="flex-1">
+                <div class="text-zinc-100 font-medium">Ollama (local)</div>
+                <div class="text-[11px] text-zinc-500 font-mono">http://localhost:11434 · no auth</div>
+              </div>
+              <span class="inline-flex items-center gap-1.5 text-[11px] text-zinc-500"><span class="idle-dot"></span> not reachable</span>
+            </div>
+            <div class="text-[12.5px] text-zinc-500">Start ollama locally to pull models. Useful for offline reviewer.</div>
+          </div>
+        </div>
+
+        <div class="card p-4">
+          <div class="text-[12px] uppercase tracking-wider text-zinc-500 mb-3">Default model per agent</div>
+          <div class="grid grid-cols-3 gap-3">
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[11px] text-zinc-500">Planner</label>
+              <button class="flex items-center justify-between px-3 py-2 rounded-md bg-[#0a0a0c] border border-zinc-800 hover:border-zinc-700 text-[13px] text-zinc-200 focus-ring">
+                <span class="font-mono">anthropic / claude-sonnet-4-6</span>
+                <i data-lucide="chevrons-up-down" class="w-3.5 h-3.5 text-zinc-500"></i>
+              </button>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[11px] text-zinc-500">Executor</label>
+              <button class="flex items-center justify-between px-3 py-2 rounded-md bg-[#0a0a0c] border border-zinc-800 hover:border-zinc-700 text-[13px] text-zinc-200 focus-ring">
+                <span class="font-mono">anthropic / claude-haiku-4-5</span>
+                <i data-lucide="chevrons-up-down" class="w-3.5 h-3.5 text-zinc-500"></i>
+              </button>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label class="text-[11px] text-zinc-500">Reviewer</label>
+              <button class="flex items-center justify-between px-3 py-2 rounded-md bg-[#0a0a0c] border border-zinc-800 hover:border-zinc-700 text-[13px] text-zinc-200 focus-ring">
+                <span class="font-mono">anthropic / claude-opus-4-7</span>
+                <i data-lucide="chevrons-up-down" class="w-3.5 h-3.5 text-zinc-500"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- SESSIONS LIST (compact)                                       -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <section data-screen="sessions">
+      <div class="px-8 py-7 max-w-[1400px]">
+        <div class="flex items-end justify-between mb-6">
+          <h1 class="text-xl text-zinc-100 font-semibold tracking-tight">Sessions</h1>
+          <button class="inline-flex items-center gap-2 px-3.5 py-2 rounded-md bg-accent text-accent-ink text-[13px] font-medium hover:bg-amber-400 focus-ring">
+            <i data-lucide="plus" class="w-4 h-4"></i> New session
+          </button>
+        </div>
+        <div class="card overflow-hidden">
+          <table class="w-full text-[13px]">
+            <thead>
+              <tr class="text-left text-[11px] uppercase tracking-wider text-zinc-500 border-b border-zinc-800/80">
+                <th class="px-4 py-2.5 font-medium">Session</th>
+                <th class="px-4 py-2.5 font-medium">Owner</th>
+                <th class="px-4 py-2.5 font-medium">Status</th>
+                <th class="px-4 py-2.5 font-medium tnum">Slices</th>
+                <th class="px-4 py-2.5 font-medium tnum">Score</th>
+                <th class="px-4 py-2.5 font-medium tnum">Cost</th>
+                <th class="px-4 py-2.5 font-medium">Updated</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-800/80">
+              <tr class="row hover:bg-zinc-900/50">
+                <td class="px-4 py-3 text-zinc-200 font-medium">build-rust-cli-line-counter</td>
+                <td class="px-4 py-3 text-zinc-400">chandan</td>
+                <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 text-amber-400"><span class="live-dot"></span> executing</span></td>
+                <td class="px-4 py-3 text-zinc-300 tnum">2 / 3</td>
+                <td class="px-4 py-3 text-emerald-400 tnum">8.4</td>
+                <td class="px-4 py-3 text-zinc-300 tnum">$0.42</td>
+                <td class="px-4 py-3 text-zinc-500">2m ago</td>
+                <td class="px-4 py-3"><div class="row-actions"><button class="p-1.5 rounded hover:bg-zinc-800 text-zinc-400"><i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i></button></div></td>
+              </tr>
+              <tr class="row hover:bg-zinc-900/50">
+                <td class="px-4 py-3 text-zinc-200 font-medium">add-auth-to-storefront-api</td>
+                <td class="px-4 py-3 text-zinc-400">priya</td>
+                <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 text-amber-400"><span class="warn-dot"></span> awaiting user</span></td>
+                <td class="px-4 py-3 text-zinc-300 tnum">3 / 5</td>
+                <td class="px-4 py-3 text-amber-400 tnum">6.1</td>
+                <td class="px-4 py-3 text-zinc-300 tnum">$1.84</td>
+                <td class="px-4 py-3 text-zinc-500">14m ago</td>
+                <td class="px-4 py-3"><div class="row-actions"><button class="p-1.5 rounded hover:bg-zinc-800 text-zinc-400"><i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i></button></div></td>
+              </tr>
+              <tr class="row hover:bg-zinc-900/50">
+                <td class="px-4 py-3 text-zinc-200 font-medium">migrate-postgres-to-libsql</td>
+                <td class="px-4 py-3 text-zinc-400">sam</td>
+                <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 text-emerald-400"><span class="ok-dot"></span> completed</span></td>
+                <td class="px-4 py-3 text-zinc-300 tnum">5 / 5</td>
+                <td class="px-4 py-3 text-emerald-400 tnum">9.2</td>
+                <td class="px-4 py-3 text-zinc-300 tnum">$3.10</td>
+                <td class="px-4 py-3 text-zinc-500">1h ago</td>
+                <td class="px-4 py-3"><div class="row-actions"><button class="p-1.5 rounded hover:bg-zinc-800 text-zinc-400"><i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i></button></div></td>
+              </tr>
+              <tr class="row hover:bg-zinc-900/50">
+                <td class="px-4 py-3 text-zinc-200 font-medium">refactor-payments-service</td>
+                <td class="px-4 py-3 text-zinc-400">rin</td>
+                <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 text-rose-400"><span class="err-dot"></span> failed</span></td>
+                <td class="px-4 py-3 text-zinc-300 tnum">3 / 6</td>
+                <td class="px-4 py-3 text-rose-400 tnum">2.7</td>
+                <td class="px-4 py-3 text-zinc-300 tnum">$2.55</td>
+                <td class="px-4 py-3 text-zinc-500">3h ago</td>
+                <td class="px-4 py-3"><div class="row-actions"><button class="p-1.5 rounded hover:bg-zinc-800 text-zinc-400"><i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i></button></div></td>
+              </tr>
+              <tr class="row hover:bg-zinc-900/50">
+                <td class="px-4 py-3 text-zinc-200 font-medium">setup-tauri-shell</td>
+                <td class="px-4 py-3 text-zinc-400">chandan</td>
+                <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 text-zinc-400"><span class="idle-dot"></span> paused</span></td>
+                <td class="px-4 py-3 text-zinc-300 tnum">0 / 4</td>
+                <td class="px-4 py-3 text-zinc-500 tnum">—</td>
+                <td class="px-4 py-3 text-zinc-300 tnum">$0.00</td>
+                <td class="px-4 py-3 text-zinc-500">yesterday</td>
+                <td class="px-4 py-3"><div class="row-actions"><button class="p-1.5 rounded hover:bg-zinc-800 text-zinc-400"><i data-lucide="play" class="w-3.5 h-3.5"></i></button></div></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <!-- ADMIN / PEOPLE                                                -->
+    <!-- ════════════════════════════════════════════════════════════ -->
+    <section data-screen="admin">
+      <div class="px-8 py-7 max-w-[1200px]">
+        <div class="flex items-end justify-between mb-6">
+          <div>
+            <h1 class="text-xl text-zinc-100 font-semibold tracking-tight">People &amp; roles</h1>
+            <p class="text-[13px] text-zinc-500 mt-1">acme · 12 members · 3 invitations pending</p>
+          </div>
+          <button class="inline-flex items-center gap-2 px-3.5 py-2 rounded-md bg-accent text-accent-ink text-[13px] font-medium hover:bg-amber-400 focus-ring">
+            <i data-lucide="user-plus" class="w-4 h-4"></i> Invite member
+          </button>
+        </div>
+        <div class="card overflow-hidden">
+          <table class="w-full text-[13px]">
+            <thead>
+              <tr class="text-left text-[11px] uppercase tracking-wider text-zinc-500 border-b border-zinc-800/80">
+                <th class="px-4 py-2.5 font-medium">Member</th>
+                <th class="px-4 py-2.5 font-medium">Email</th>
+                <th class="px-4 py-2.5 font-medium">Role</th>
+                <th class="px-4 py-2.5 font-medium">Projects</th>
+                <th class="px-4 py-2.5 font-medium">Last seen</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-zinc-800/80">
+              <tr class="row hover:bg-zinc-900/50">
+                <td class="px-4 py-3"><div class="flex items-center gap-2.5"><div class="w-7 h-7 rounded-full bg-gradient-to-br from-rose-500 to-orange-500 grid place-items-center text-[11px] font-semibold text-white">CA</div><span class="text-zinc-200">Chandan Anugu</span></div></td>
+                <td class="px-4 py-3 text-zinc-400 font-mono">chandan@acme.dev</td>
+                <td class="px-4 py-3"><span class="text-[11px] px-2 py-0.5 rounded bg-accent/15 text-accent-soft">Owner</span></td>
+                <td class="px-4 py-3 text-zinc-400">all</td>
+                <td class="px-4 py-3 text-zinc-500">just now</td>
+                <td></td>
+              </tr>
+              <tr class="row hover:bg-zinc-900/50">
+                <td class="px-4 py-3"><div class="flex items-center gap-2.5"><div class="w-7 h-7 rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 grid place-items-center text-[11px] font-semibold text-white">PR</div><span class="text-zinc-200">Priya R.</span></div></td>
+                <td class="px-4 py-3 text-zinc-400 font-mono">priya@acme.dev</td>
+                <td class="px-4 py-3"><span class="text-[11px] px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-300">Admin</span></td>
+                <td class="px-4 py-3 text-zinc-400">storefront · payments</td>
+                <td class="px-4 py-3 text-zinc-500">12m ago</td>
+                <td></td>
+              </tr>
+              <tr class="row hover:bg-zinc-900/50">
+                <td class="px-4 py-3"><div class="flex items-center gap-2.5"><div class="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 grid place-items-center text-[11px] font-semibold text-white">SM</div><span class="text-zinc-200">Sam M.</span></div></td>
+                <td class="px-4 py-3 text-zinc-400 font-mono">sam@acme.dev</td>
+                <td class="px-4 py-3"><span class="text-[11px] px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-300">Developer</span></td>
+                <td class="px-4 py-3 text-zinc-400">core</td>
+                <td class="px-4 py-3 text-zinc-500">1h ago</td>
+                <td></td>
+              </tr>
+              <tr class="row hover:bg-zinc-900/50">
+                <td class="px-4 py-3"><div class="flex items-center gap-2.5"><div class="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 grid place-items-center text-[11px] font-semibold text-white">RT</div><span class="text-zinc-200">Rin T.</span></div></td>
+                <td class="px-4 py-3 text-zinc-400 font-mono">rin@acme.dev</td>
+                <td class="px-4 py-3"><span class="text-[11px] px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-300">Developer</span></td>
+                <td class="px-4 py-3 text-zinc-400">payments</td>
+                <td class="px-4 py-3 text-zinc-500">3h ago</td>
+                <td></td>
+              </tr>
+              <tr class="row hover:bg-zinc-900/50">
+                <td class="px-4 py-3"><div class="flex items-center gap-2.5"><div class="w-7 h-7 rounded-full bg-zinc-700 grid place-items-center text-[11px] font-semibold text-zinc-300">QA</div><span class="text-zinc-200">QA bot</span></div></td>
+                <td class="px-4 py-3 text-zinc-400 font-mono">api-token · scope:read</td>
+                <td class="px-4 py-3"><span class="text-[11px] px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-300">Viewer</span></td>
+                <td class="px-4 py-3 text-zinc-400">all (read-only)</td>
+                <td class="px-4 py-3 text-zinc-500">continuous</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- placeholder for nav links we don't deep-mock -->
+    <section data-screen="audit"><div class="px-8 py-12 text-zinc-500">Audit log lives here — same row treatment as the Audit feed on the Dashboard, plus filters and CSV export.</div></section>
+    <section data-screen="tokens"><div class="px-8 py-12 text-zinc-500">API tokens management — scoped tokens for external agents (Claude, Cursor, CI bots). Hash-only storage, last-used timestamps, scope chips.</div></section>
+
+    </div><!-- /Content -->
+  </main>
+</div>
+
+<!-- ============================================================ -->
+<!-- COMMAND PALETTE (overlay)                                    -->
+<!-- ============================================================ -->
+<div id="palette" class="fixed inset-0 z-50 hidden items-start justify-center pt-[14vh]">
+  <div class="w-[640px] card !bg-[#0f0f12] shadow-2xl animate-fade-in overflow-hidden">
+    <div class="flex items-center gap-2 px-4 py-3 border-b border-zinc-800">
+      <i data-lucide="search" class="w-4 h-4 text-zinc-500"></i>
+      <input id="palette-input" autofocus placeholder="Jump to a session, skill, or action…" class="flex-1 bg-transparent outline-none text-[14px] text-zinc-100 placeholder:text-zinc-600"/>
+      <span class="key">esc</span>
+    </div>
+    <div class="max-h-[420px] overflow-auto scroll-thin py-2">
+      <div class="px-3 py-1.5 text-[10px] uppercase tracking-wider text-zinc-500">Sessions</div>
+      <button class="w-full px-3 py-2 flex items-center gap-3 hover:bg-zinc-900/60 text-left rounded-md">
+        <i data-lucide="git-branch" class="w-4 h-4 text-zinc-400"></i>
+        <span class="text-[13px] text-zinc-200 flex-1">build-rust-cli-line-counter</span>
+        <span class="text-[11px] text-zinc-500">executing</span>
+        <span class="key">↵</span>
+      </button>
+      <button class="w-full px-3 py-2 flex items-center gap-3 hover:bg-zinc-900/60 text-left rounded-md">
+        <i data-lucide="git-branch" class="w-4 h-4 text-zinc-400"></i>
+        <span class="text-[13px] text-zinc-200 flex-1">migrate-postgres-to-libsql</span>
+        <span class="text-[11px] text-zinc-500">completed</span>
+      </button>
+      <div class="px-3 py-1.5 text-[10px] uppercase tracking-wider text-zinc-500 mt-2">Actions</div>
+      <button class="w-full px-3 py-2 flex items-center gap-3 hover:bg-zinc-900/60 text-left rounded-md">
+        <i data-lucide="plus" class="w-4 h-4 text-zinc-400"></i>
+        <span class="text-[13px] text-zinc-200 flex-1">Start a new session</span>
+        <span class="key">N</span>
+      </button>
+      <button class="w-full px-3 py-2 flex items-center gap-3 hover:bg-zinc-900/60 text-left rounded-md">
+        <i data-lucide="puzzle" class="w-4 h-4 text-zinc-400"></i>
+        <span class="text-[13px] text-zinc-200 flex-1">Install a skill from GitHub</span>
+      </button>
+      <button class="w-full px-3 py-2 flex items-center gap-3 hover:bg-zinc-900/60 text-left rounded-md">
+        <i data-lucide="pause" class="w-4 h-4 text-zinc-400"></i>
+        <span class="text-[13px] text-zinc-200 flex-1">Pause current session</span>
+      </button>
+      <div class="px-3 py-1.5 text-[10px] uppercase tracking-wider text-zinc-500 mt-2">Skills</div>
+      <button class="w-full px-3 py-2 flex items-center gap-3 hover:bg-zinc-900/60 text-left rounded-md">
+        <span class="w-4 h-4 grid place-items-center"><span class="w-1.5 h-1.5 rounded-full bg-accent"></span></span>
+        <span class="text-[13px] text-zinc-200 font-mono flex-1">rust-best-practices</span>
+        <span class="text-[11px] text-zinc-500">attached</span>
+      </button>
+    </div>
+    <div class="border-t border-zinc-800 px-3 py-2 flex items-center justify-between text-[11px] text-zinc-500">
+      <div class="flex items-center gap-2">
+        <span class="key">↑</span><span class="key">↓</span> navigate · <span class="key">↵</span> open · <span class="key">⇧</span><span class="key">↵</span> in new window
+      </div>
+      <span>fuzzy match · 12 results</span>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- JS                                                           -->
+<!-- ============================================================ -->
+<script>
+  // navigation
+  const navMap = {
+    dashboard: { leaf: 'dashboard' },
+    sessions: { leaf: 'sessions' },
+    plan: { leaf: 'plan-review · build-rust-cli-line-counter' },
+    run: { leaf: 'live-run · build-rust-cli-line-counter' },
+    skills: { leaf: 'skills' },
+    models: { leaf: 'models & providers' },
+    admin: { leaf: 'people & roles' },
+    audit: { leaf: 'audit log' },
+    tokens: { leaf: 'api tokens' },
+  };
+  function showScreen(name) {
+    document.querySelectorAll('[data-screen]').forEach(s => s.classList.toggle('active', s.dataset.screen === name));
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      const active = b.dataset.nav === name;
+      b.classList.toggle('bg-zinc-900/80', active);
+      b.classList.toggle('text-zinc-50', active);
+      if (active) b.style.borderLeft = '2px solid #f59e0b';
+      else b.style.borderLeft = '2px solid transparent';
+      b.style.paddingLeft = active ? '8px' : '10px';
+    });
+    const leafEl = document.getElementById('bc-leaf');
+    if (leafEl && navMap[name]) leafEl.textContent = navMap[name].leaf;
+  }
+  document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => showScreen(b.dataset.nav)));
+
+  // initial screen
+  showScreen('run');
+
+  // command palette
+  const palette = document.getElementById('palette');
+  function togglePalette(force) {
+    const next = force ?? palette.classList.contains('hidden');
+    palette.classList.toggle('hidden', !next);
+    palette.classList.toggle('flex', next);
+    if (next) setTimeout(() => document.getElementById('palette-input')?.focus(), 50);
+  }
+  document.getElementById('open-palette')?.addEventListener('click', () => togglePalette(true));
+  palette.addEventListener('click', e => { if (e.target === palette) togglePalette(false); });
+  document.addEventListener('keydown', e => {
+    const isMod = e.metaKey || e.ctrlKey;
+    if (isMod && e.key.toLowerCase() === 'k') { e.preventDefault(); togglePalette(); }
+    if (e.key === 'Escape') togglePalette(false);
+    // quick screen jumps for the demo
+    if (!isMod && !e.target.matches('input,textarea')) {
+      const map = { '1':'dashboard','2':'sessions','3':'plan','4':'run','5':'skills','6':'models','7':'admin' };
+      if (map[e.key]) showScreen(map[e.key]);
+    }
+  });
+
+  // lucide
+  lucide.createIcons();
+</script>
+</body>
+</html>
