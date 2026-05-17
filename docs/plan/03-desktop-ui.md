@@ -22,6 +22,8 @@ Expanded design tokens, component patterns, and motion presets live in `05-desig
 
 ## 2. Screens
 
+The table below is the inventory. Each entry is rendered in the prototype at [`../prototypes/ui-end-state.html`](../prototypes/ui-end-state.html); full-resolution PNGs live in [`../prototypes/screens/`](../prototypes/screens/). The renderings below are the visual contract — anything we ship needs to look at least this considered.
+
 | Screen | Purpose | Key components |
 |---|---|---|
 | **Onboarding** | First-run: enter orchestrator URL (always remote — self-hosted or SaaS), sign in via password/OIDC, save server profile. Multiple server profiles supported (switch between dev/staging/prod). | Stepper, OIDC redirect, server-profile picker, TLS-cert trust prompt. |
@@ -36,6 +38,56 @@ Expanded design tokens, component patterns, and motion presets live in `05-desig
 | **Admin** | Users, roles, projects, API tokens, OIDC config. | RBAC matrix, invite flow. |
 | **Settings** | App theme, accent color, keyboard shortcuts, telemetry opt-out. | — |
 | **Command palette (⌘K)** | Jump to any session/skill/setting, run actions. | Fuzzy search, recents. |
+
+---
+
+### 2.1 Live Run — the showpiece
+
+Three-pane: slices on the left, the active agent's stream (thinking → tool calls → code → command output → next turn) in the middle, artifacts and live agent panel on the right. Plan/Act toggle pill in the header. Shimmer progress on the in-progress slice. Live caret blink in the token stream. Steering composer at the bottom of the stream pane.
+
+![Live Run — three-pane layout with agent stream and artifact tree](../prototypes/screens/04-live-run.png)
+
+### 2.2 Dashboard
+
+KPI tiles with sparklines (active sessions, queue depth, avg slice time, spend) above a recent-sessions table, factory capacity gauge, audit feed, and review-score histogram.
+
+![Dashboard — KPI tiles, sessions table, factory capacity, audit feed](../prototypes/screens/01-dashboard.png)
+
+### 2.3 Plan Review
+
+User prompt card at the top. The plan as a DAG on a dotted-grid Codemap canvas with animated dashed edges on the active path. Right-rail side panel for the selected slice, agents in play, attached skills, and the prominent Approve & Execute primary action.
+
+![Plan Review — slice DAG canvas with selected-slice side panel](../prototypes/screens/02-plan-review.png)
+
+### 2.4 Skills
+
+Marketplace cards with provenance line (`github:` / `local:` / `npm:`), scope chips (`attached`, `planner-only`, `reviewer-only`), invocation count over the window, and an "install from anywhere" CTA card.
+
+![Skills — marketplace grid with scope and source filters](../prototypes/screens/03-skills.png)
+
+### 2.5 Models & Providers
+
+Provider cards with reachability + latency, model rows showing context window and per-1M-token output cost. Defaults-per-agent picker at the bottom.
+
+![Models & Providers — provider cards and defaults-per-agent](../prototypes/screens/05-models.png)
+
+### 2.6 Sessions
+
+Dense table view with status pill, slices progress, score, cost, owner, last-updated.
+
+![Sessions — table view with status, score, slice progress](../prototypes/screens/06-sessions.png)
+
+### 2.7 People & roles
+
+RBAC matrix: members, emails (or `api-token · scope:read` for machine identities), role chip, scoped projects, last-seen.
+
+![People & roles — RBAC matrix with machine identities](../prototypes/screens/07-admin.png)
+
+### 2.8 Command palette (⌘K)
+
+Fuzzy search across sessions, skills, and actions. Keyboard hints in the footer. Available on every screen.
+
+![Command palette — fuzzy search overlay over the Live Run](../prototypes/screens/08-command-palette.png)
 
 ---
 

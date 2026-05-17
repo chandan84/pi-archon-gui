@@ -2,6 +2,10 @@
 
 > Canonical plan. Per-project deep dives live in `01-agent-factory.md`, `02-orchestrator.md`, `03-desktop-ui.md`. Architecture decisions in `04-architecture-decisions/`. Design system, errors, and roadmap in `05`–`07`.
 
+![Live Run — three-pane showpiece (slices · agent stream · artifacts)](../prototypes/screens/04-live-run.png)
+
+> **Visual target.** This is the end-state Live Run screen rendered from [`../prototypes/ui-end-state.html`](../prototypes/ui-end-state.html). The full set of screen renderings lives in [`../prototypes/screens/`](../prototypes/screens/) and is embedded throughout `03-desktop-ui.md`. Open the prototype directly in any browser to interact (⌘K palette, number keys 1–7 to jump screens).
+
 ---
 
 ## 1. Context

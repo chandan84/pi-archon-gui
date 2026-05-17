@@ -17,3 +17,4 @@ This folder is the canonical plan for the Pi-Archon multi-agent coding system.
 
 - [`../../AGENTS.md`](../../AGENTS.md) — Testing charter. Manual E2E is the source of truth. Anti-patterns are listed.
 - [`../manual-tests/`](../manual-tests/) — Per-milestone manual test checklists (added as milestones begin).
+- [`../prototypes/`](../prototypes/) — Interactive HTML prototype (`ui-end-state.standalone.html` for offline) and pre-rendered `screens/` PNGs of every screen. These are embedded throughout `00-overview.md`, `03-desktop-ui.md`, and `05-design-system.md` and are the visual contract for the build.

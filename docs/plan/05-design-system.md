@@ -2,7 +2,9 @@
 
 The UI is the user's emotional impression of the product. The bar is **Linear, Raycast, Arc, Vercel dashboards** — apps that feel calm, fast, and considered. Polished but not decorative.
 
-This doc captures the non-negotiables. Tokens and components live in `apps/desktop/src/lib/theme/` and `apps/desktop/src/lib/components/ui/`.
+This doc captures the non-negotiables. Tokens and components live in `apps/desktop/src/lib/theme/` and `apps/desktop/src/lib/components/ui/`. The visual contract is the prototype at [`../prototypes/ui-end-state.html`](../prototypes/ui-end-state.html); every principle below is demonstrated in the renderings under [`../prototypes/screens/`](../prototypes/screens/).
+
+![Live Run — dense, calm, tabular, single primary action](../prototypes/screens/04-live-run.png)
 
 ---
 
@@ -129,6 +131,16 @@ Built on **shadcn-svelte** primitives. Patches:
 ## 7. Iconography
 
 **Lucide** exclusively. 16px in dense UI, 20px in primary surfaces, 24px in hero areas. Never stroke-width inconsistencies in the same view. No emoji.
+
+---
+
+## 7.1 In situ — design discipline applied
+
+The two screens below illustrate the principles in this doc: dark-first neutrals, single amber accent restricted to status and primary actions, monospace only for code/IDs/numbers, tabular numerics throughout, generous card padding with tight inner rhythm, and one primary CTA per view.
+
+![Dashboard — calm density, single accent for the "New session" CTA](../prototypes/screens/01-dashboard.png)
+
+![Plan Review — the dotted-grid Codemap canvas and a single primary "Approve & execute"](../prototypes/screens/02-plan-review.png)
 
 ---
 
